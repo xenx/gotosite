@@ -46,7 +46,10 @@ urlpatterns = [
 
         # Bank
         url(r'^bank/shop/', shop),
-        url(r'^bank/buy/', buy_good)
+        url(r'^bank/buy/', buy_good),
+
+        #events
+        url(r'^events/', events)
     ]))
 ]
 

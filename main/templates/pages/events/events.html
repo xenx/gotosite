@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <link rel="stylesheet" href={% static "/css/events/events.css" %}>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src={% static "/js/tempusjs.min.js" %}></script>
+    <script src={% static "/js/events/calendar.js" %}></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Школа программирования и робототехники GoTo</title>
+</head>
+<body>
+<input id="profile_page_csrf_token" name="csrfmiddlewaretoken" type="hidden"
+       value="{{ csrf_token }}">
+
+{% include 'helpers/menu.html' %}
+<section id="calendar">
+<div class="month">
+  <ul>
+    <li class="prev" onclick="calendar()">&#10094;</li>
+    <li class="next" onclick="calendar()">&#10095;</li>
+    <!-- <li> -->
+      <li id=month>Месяц</li><br>
+      <span id=year style="font-size:18px">Год</span>
+    <!-- </li> -->
+  </ul>
+</div>
+
+<ul class="weekdays">
+  <li>Пн</li>
+  <li>Вт</li>
+  <li>Ср</li>
+  <li>Чт</li>
+  <li>Пт</li>
+  <li>Сб</li>
+  <li>Вс</li>
+</ul>
+
+<ul class="days">
+  <li>1</li>
+  <li>2</li>
+  <li>3</li>
+  <li>4</li>
+  <li>5</li>
+  <li>6</li>
+  <li>7</li>
+  <li>8</li>
+  <li>9</li>
+  <li>10</li>
+  <li>11</li>
+  <li>12</li>
+  <li>13</li>
+  <li>14</li>
+  <li>15</li>
+  <li>16</li>
+  <li>17</li>
+  <li>18</li>
+  <li>19</li>
+  <li>20</li>
+  <li>21</li>
+  <li>22</li>
+  <li>23</li>
+  <li>24</li>
+  <li>25</li>
+  <li>26</li>
+  <li>27</li>
+  <li>28</li>
+  <li>29</li>
+  <li>30</li>
+  <li>31</li>
+  <li>32</li>
+  <li>33</li>
+  <li>34</li>
+  <li>35</li>
+</ul>
+</section>
+<script>calendar('2017-09')</script>
+</body>
+</html>

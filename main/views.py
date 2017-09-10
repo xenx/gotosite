@@ -518,3 +518,6 @@ def generate_csv(request):
     # fixme absolute path
     data.to_csv('/root/gotosite/main/static/out.csv')
     return redirect('/static/out.csv')
+
+def events(request):
+    return render(request, "pages/events/events.html")
