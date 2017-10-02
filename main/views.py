@@ -1,10 +1,13 @@
 import base64
 import json
 import os
+from datetime import datetime
 
 import pandas as pd
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import logout, authenticate, login
+from django.core import serializers
+from django.forms.models import model_to_dict
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.http import HttpResponse
@@ -17,7 +20,7 @@ from .forms import validate_user_field
 from .models import *
 
 domain = '/new'
-
+dateformat = "%Y-%m-%dT%H:%M"
 
 ###########
 #
@@ -519,5 +522,41 @@ def generate_csv(request):
     data.to_csv('/root/gotosite/main/static/out.csv')
     return redirect('/static/out.csv')
 
+
+##############
+### Events ###
+##############
+
+
 def events(request):
     return render(request, "pages/events/events.html")
+
+def create_update_delete_event(request):
+    if request.method == "POST":
+        event = {}
+# date(almost) iso8601 str: YYYY-MM-DDThh:mm (eg 1997-07-16T19:20)
+        for val in ["name", "description", "tags", "source", "date"]:
+            if val in request.POST and len(request.POST[val]):
+                if val == "date":
+                    event[val] = datetime.strptime(request.POST[val], dateformat)
+                else:
+                    event[val] = request.POST[val]
+
+        event = Event(**event)
+        event.save()
+        return HttpResponse()
+
+    elif request.method == "GET":
+        if "event_id" in request.GET:
+            events = Event.objects.get(pk=request.GET["event_id"])
+            events = serializers.serialize('json', [events,])
+        else:
+            events = Event.objects.all()
+            events = list(map(lambda x: serializers.serialize('json', [x,])))
+        return HttpResponse(json.dumps(events), mimetype='application/json')
+
+    elif request.method == "PUT":
+        pass
+
+    elif request.method == "DELETE":
+        pass

@@ -267,7 +267,7 @@ class Event(models.Model):
     image = models.FileField(upload_to='events/', blank=True, null=True)
     our_event = models.BooleanField(default=False)
     participants = models.ManyToManyField(User, blank=True)
-
+    date = models.DateTimeField()
     def __str__(self):
         return "{}".format(self.title)
 
