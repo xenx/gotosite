@@ -1,7 +1,6 @@
 import base64
 import json
 import os
-from datetime import datetime
 
 import pandas as pd
 from allauth.socialaccount.models import SocialAccount
@@ -19,10 +18,11 @@ from main.apps import SOCIALS
 from .forms import validate_user_field
 from .models import *
 
+import datetime
 domain = '/new'
-dateformat = "%Y-%m-%dT%H:%M"
-
-###########
+datetimeformat = "%Y-%m-%dT%H:%M"
+dateformat = "%Y-%m-%d"
+##########
 #
 # SIMPLE PAGES
 #
@@ -492,7 +492,7 @@ def buy_good(request):
                     'good': good,
                     'transaction_id': Transaction.objects.count(),
                     'to_complite': 4 - len(str(good.price)),
-                    'date': datetime.now()
+                    'date': datetime.datetime.now()
                 })
     return HttpResponse("Вы не можете купить этот товар")
 
@@ -531,32 +531,121 @@ def generate_csv(request):
 def events(request):
     return render(request, "pages/events/events.html")
 
-def create_update_delete_event(request):
+from django.views.decorators.csrf import csrf_exempt
+@csrf_exempt
+def create_get_update_delete_event(request):
+    if request.content_type == 'application/json' and len(request.body) > 0:
+        data = json.loads(request.body)
+    elif request.method == "GET":
+        data = {}
+    else:
+        return HttpResponse(status=400)
+
     if request.method == "POST":
         event = {}
-# date(almost) iso8601 str: YYYY-MM-DDThh:mm (eg 1997-07-16T19:20)
-        for val in ["name", "description", "tags", "source", "date"]:
-            if val in request.POST and len(request.POST[val]):
-                if val == "date":
-                    event[val] = datetime.strptime(request.POST[val], dateformat)
-                else:
-                    event[val] = request.POST[val]
+        if "link" in data and Event.objects.filter(link=data["link"]).exists():
+            return HttpResponse(
+                                {"Error": "Event exist"},
+                                content_type="application/json",
+                                status=409
+                                )
 
+# date(almost) iso8601 str: YYYY-MM-DDThh:mm (eg 1997-07-16T19:20)
+        for val in ["title", "description", "tags", "source", "date", "type_"]:
+            if val in data and len(data[val]) > 0:
+                if val == "date":
+                    event[val] = datetime.datetime.strptime(data[val], datetimeformat)
+                else:
+                    event[val] = data[val]
+            else:
+                return HttpResponse({"Error": "Need {}".format(val)},
+                                    content_type='application/json',
+                                    status=400)
+
+        for val in ["need_skills"]:
+            if val in data and len(data[val]) > 0:
+                event[val] = data["val"]
+
+        #event["creator"] = request.user
         event = Event(**event)
         event.save()
-        return HttpResponse()
+        return HttpResponse(json.dumps({"event_id": event.id}),
+                content_type='application/json')
+
 
     elif request.method == "GET":
-        if "event_id" in request.GET:
-            events = Event.objects.get(pk=request.GET["event_id"])
+        if "event_id" in data:
+            try:
+                events = Event.objects.get(pk=data["event_id"])
+            except:
+                return HttpResponse({"Error": "Not exist"},
+                                    content_type='application/json',
+                                    status=404)
+
             events = serializers.serialize('json', [events,])
+        elif "date" in data:
+            if isinstance(data["date"], dict):
+                if "before" in data["date"] and "after" in data["date"]:
+                    before_date = datetime.datetime.strptime(data["date"]["before"],
+                                                    datetimeformat)
+                    after_date = datetime.datetime.strptime(data["date"]["after"],
+                                                    datetimeformat)
+                else:
+                    return HttpResponse(
+                                        {"Error": "Need before and after date"},
+                                        status=400
+                                        )
+            elif isinstance(data["date"], str):
+                date = datetime.datetime.strptime(data["date"], dateformat)
+                after_date = date
+                before_date = after_date + datetime.timedelta(days=1)
+            else:
+                return HttpResponse({"Error": "Date must be str or dict"})
+            events = Event.objects.filter(
+                                        date__gte=after_date).filter(date__lte=before_date).all()
+            events = serializers.serialize('json', events)
         else:
             events = Event.objects.all()
-            events = list(map(lambda x: serializers.serialize('json', [x,])))
-        return HttpResponse(json.dumps(events), mimetype='application/json')
+            events = serializers.serialize('json', events)
+        return HttpResponse(events, content_type='application/json')
 
     elif request.method == "PUT":
-        pass
+        if "event_id" not in data:
+            return HttpResponse({"Error": "Need event_id"},
+                                content_type="application/json",
+                                status=400)
+        try:
+            event = Event.objects.get(pk=data["event_id"])
+        except:
+            return HttpResponse({"Error": "Not exist"},
+                                content_type='application/json',
+                                status=404)
+        for val in ["title ", "description", "tags", "source", "date"]:
+            if val in data and len(data[val]) > 0:
+                if val == "date":
+                    setattr(event,
+                            val,
+                            datetime.datetime.strptime(data[val], dateformat))
+                else:
+                    setattr(event,
+                            val,
+                            data[val])
+
+        event.save()
+        return HttpResponse(status=204, content_type='application/json')
 
     elif request.method == "DELETE":
-        pass
+        if "event_id" not in data:
+            return HttpResponse({"Error": "Need event_id"},
+                                content_type="application/json",
+                                status=400)
+        try:
+            event = Event.objects.get(pk=data["event_id"])
+        except:
+            return HttpResponse({"Error": "Not exist"},
+                                content_type='application/json',
+                                status=404)
+
+        event.delete()
+        return HttpResponse(status=204)
+

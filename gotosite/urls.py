@@ -49,7 +49,8 @@ urlpatterns = [
         url(r'^bank/buy/', buy_good),
 
         #events
-        url(r'^events/', events)
+        url(r'^events/', events),
+	url(r'^api/events', create_get_update_delete_event)
     ]))
 ]
 
