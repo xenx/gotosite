@@ -568,9 +568,11 @@ def create_get_update_delete_event(request):
                                 content_type="application/json",
                                 status=409
                                 )
+        elif "link" in data:
+            event["link"] = data["link"]
 
 # date(almost) iso8601 str: YYYY-MM-DDThh:mm (eg 1997-07-16T19:20)
-        for val in ["title", "description", "link", "date", "type"]:
+        for val in ["title", "description", "date", "type"]:
             if val in data and len(data[val]) > 0:
                 if val == "date":
                     event[val] = datetime.datetime.strptime(data[val], datetimeformat)
