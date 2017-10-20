@@ -528,12 +528,31 @@ def generate_csv(request):
 ##############
 
 
+def prepare_skills(skills):
+    skills_errors = validate_user_field('skills', skills)
+    answer = []
+    for skill, skill_error in zip(skills, skills_errors):
+        if len(skill_error) == 0:
+            db_skill = Skill.objects.filter(name=skill)
+            if len(db_skill) > 0:
+                answer.append(db_skill[0])
+
+            else:
+                tmp_skill = Skill(name=skill)
+                tmp_skill.save()
+
+                answer.append(tmp_skill)
+
+    return answer
+
+
 def events(request):
     return render(request, "pages/events/events.html")
 
 from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def create_get_update_delete_event(request):
+    print(request.body)
     if request.content_type == 'application/json' and len(request.body) > 0:
         data = json.loads(request.body)
     elif request.method == "GET":
@@ -551,7 +570,7 @@ def create_get_update_delete_event(request):
                                 )
 
 # date(almost) iso8601 str: YYYY-MM-DDThh:mm (eg 1997-07-16T19:20)
-        for val in ["title", "description", "tags", "source", "date", "type_"]:
+        for val in ["title", "description", "link", "date", "type"]:
             if val in data and len(data[val]) > 0:
                 if val == "date":
                     event[val] = datetime.datetime.strptime(data[val], datetimeformat)
@@ -562,12 +581,16 @@ def create_get_update_delete_event(request):
                                     content_type='application/json',
                                     status=400)
 
-        for val in ["need_skills"]:
-            if val in data and len(data[val]) > 0:
-                event[val] = data["val"]
+        event = Event(**event)
+        event.save()
+
+        if "need_skills" in data:
+            event.need_skills = prepare_skills(data["need_skills"])
+        #for val in ["need_skills", "tags"]:
+         #   if val in data and len(data[val]) > 0:
+          #      event[val] = data["val"]
 
         #event["creator"] = request.user
-        event = Event(**event)
         event.save()
         return HttpResponse(json.dumps({"event_id": event.id}),
                 content_type='application/json')
@@ -630,6 +653,9 @@ def create_get_update_delete_event(request):
                     setattr(event,
                             val,
                             data[val])
+
+        if "need_skills" in data:
+            event.need_skills = prepare_skills(data["need_skills"])
 
         event.save()
         return HttpResponse(status=204, content_type='application/json')

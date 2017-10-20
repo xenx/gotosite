@@ -261,10 +261,14 @@ class Project(models.Model):
 
 
 EVENT_TYPES = [
+        ("UNK", "Unknown"),
         ("ХАК", "Хакатон"),
         ("МИТ", "Митап"),
         ("СОР", "Соревнование"),
-        ("ШК", "Школа")
+        ("ШК", "Школа"),
+        ("Мастер-класс", "MK"),
+        ("Конференция", "КОНФ"),
+        ("Лекция", "ЛЕК")
         ]
 
 class Event(models.Model):
@@ -272,7 +276,7 @@ class Event(models.Model):
     link = models.CharField(max_length=120, blank=True, null=True, unique=True)
     description = models.TextField(blank=True, null=True)
     image = models.FileField(upload_to='events/', blank=True, null=True)
-    type_ = models.CharField(max_length=50, choices=EVENT_TYPES)
+    type = models.CharField(max_length=50, choices=EVENT_TYPES)
 
     need_skills = models.ManyToManyField(Skill, blank=True)
     #creator = models.ForeignKey(User, on_delete=models.CASCADE,

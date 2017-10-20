@@ -9,6 +9,8 @@
 #     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 #     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 
+API_URL = "http://localhost:8000/new/api"
+
 BOT_NAME = 'it_events'
 
 SPIDER_MODULES = ['it_events.spiders']
@@ -65,9 +67,12 @@ ROBOTSTXT_OBEY = True
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    'it_events.pipelines.ItEventsFree': 100,
-    'it_events.pipelines.ItEventsPipeline': 300,
-    'it_events.pipelines.JsonWriterPipeline': 500,
+    'it_events.pipelines.BeginingPipeline': 100,
+    'it_events.pipelines.ItEventsFree': 200,
+#    'it_events.pipelines.TypePipeline': 300,
+    'it_events.pipelines.DescriptionPipeline': 400,
+    'it_events.pipelines.TimePipeline': 500,
+    'it_events.pipelines.SendAPIPipeline': 900,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)

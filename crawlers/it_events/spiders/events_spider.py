@@ -13,10 +13,10 @@ class ItEventsSpider(scrapy.Spider):
     def parse_event(self, request):
         return {
                 'link': request.url,
-                'name': request.css("h1.event-header__title::text").extract_first(),
-                'time': request.css("div.event-header__line::text").extract_first(),
+                'title': request.css("h1.event-header__title::text").extract_first(),
+                'date': request.css("div.event-header__line::text").extract_first(),
                 'place': request.css("a.event-header__line_addr::text").extract_first(),
                 'free': request.css("div.event-header__line_icon_price::text").extract_first(),
-                'type_': request.css("li.nav-tabs-item::text").extract_first(),
+                'type': request.css("li.nav-tabs-item::text").extract_first(),
                 'description': request.css("div.col-md-8 *::text").extract()
                 }
