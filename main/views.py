@@ -528,6 +528,16 @@ def generate_csv(request):
 ##############
 
 
+def events_to_dict(events: list) -> list:
+    events = json.loads(serializers.serialize('json', events))
+    result = []
+    for event in events:
+        pk = event["pk"]
+        event = event["fields"]
+        event["event_id"] = pk
+        result.append(event)
+    return result
+
 def prepare_skills(skills):
     skills_errors = validate_user_field('skills', skills)
     answer = []
@@ -607,7 +617,7 @@ def create_get_update_delete_event(request):
                                     content_type='application/json',
                                     status=404)
 
-            events = serializers.serialize('json', [events,])
+            events = events_to_dict([events])
         elif "date" in data:
             if isinstance(data["date"], dict):
                 if "before" in data["date"] and "after" in data["date"]:
@@ -628,10 +638,10 @@ def create_get_update_delete_event(request):
                 return HttpResponse({"Error": "Date must be str or dict"})
             events = Event.objects.filter(
                                         date__gte=after_date).filter(date__lte=before_date).all()
-            events = serializers.serialize('json', events)
+            events = events_to_dict(events)
         else:
             events = Event.objects.all()
-            events = serializers.serialize('json', events)
+            events = events_to_dict(events)
         return HttpResponse(events, content_type='application/json')
 
     elif request.method == "PUT":
@@ -676,4 +686,3 @@ def create_get_update_delete_event(request):
 
         event.delete()
         return HttpResponse(status=204)
-
