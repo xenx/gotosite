@@ -562,7 +562,6 @@ def events(request):
 from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def create_get_update_delete_event(request):
-    print(request.body)
     if request.content_type == 'application/json' and len(request.body) > 0:
         data = json.loads(request.body)
     elif request.method == "GET":
@@ -686,3 +685,26 @@ def create_get_update_delete_event(request):
 
         event.delete()
         return HttpResponse(status=204)
+
+def go_event(request):
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401)
+
+    if request.content_type == 'application/json' and len(request.body) > 0:
+        data = json.loads(request.body)
+    else:
+        return HttpResponse(status=400)
+
+    if "event_id" in data:
+        try:
+            Event.objects.get(pk=data["event_id"])
+        except:
+            return HttpResponse({"Error": "Not exist"},
+                                content_type='application/json',
+                                status=404)
+        return HttpResponse(status=204)
+    else:
+        return HttpResponse({"Error": "Must be event_id"},
+                                content_type='application/json',
+                                status=400)
+
