@@ -5,6 +5,8 @@ import os
 import pandas as pd
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import logout, authenticate, login
+from django.core import serializers
+from django.forms.models import model_to_dict
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.http import HttpResponse
@@ -16,10 +18,11 @@ from main.apps import SOCIALS
 from .forms import validate_user_field
 from .models import *
 
+import datetime
 domain = '/new'
-
-
-###########
+datetimeformat = "%Y-%m-%dT%H:%M"
+dateformat = "%Y-%m-%d"
+##########
 #
 # SIMPLE PAGES
 #
@@ -489,7 +492,7 @@ def buy_good(request):
                     'good': good,
                     'transaction_id': Transaction.objects.count(),
                     'to_complite': 4 - len(str(good.price)),
-                    'date': datetime.now()
+                    'date': datetime.datetime.now()
                 })
     return HttpResponse("Вы не можете купить этот товар")
 
@@ -518,3 +521,209 @@ def generate_csv(request):
     # fixme absolute path
     data.to_csv('/root/gotosite/main/static/out.csv')
     return redirect('/static/out.csv')
+
+
+##############
+### Events ###
+##############
+
+
+def events_to_dict(events: list) -> list:
+    events = json.loads(serializers.serialize('json', events))
+    result = []
+    for event in events:
+        pk = event["pk"]
+        event = event["fields"]
+        event["event_id"] = pk
+        result.append(event)
+    return result
+
+def prepare_skills(skills):
+    skills_errors = validate_user_field('skills', skills)
+    answer = []
+    for skill, skill_error in zip(skills, skills_errors):
+        if len(skill_error) == 0:
+            db_skill = Skill.objects.filter(name=skill)
+            if len(db_skill) > 0:
+                answer.append(db_skill[0])
+
+            else:
+                tmp_skill = Skill(name=skill)
+                tmp_skill.save()
+
+                answer.append(tmp_skill)
+
+    return answer
+
+
+def events(request):
+    return render(request, "pages/events/events.html")
+
+
+
+
+
+from recommendation import RecomendationSystem
+
+rec_sys = RecomendationSystem()
+
+
+from django.views.decorators.csrf import csrf_exempt
+@csrf_exempt
+def create_get_update_delete_event(request):
+    if request.content_type == 'application/json' and len(request.body) > 0:
+        data = json.loads(request.body)
+    elif request.method == "GET":
+        data = {}
+    else:
+        return HttpResponse(status=400)
+
+    if request.method == "POST":
+        event = {}
+        if "link" in data and Event.objects.filter(link=data["link"]).exists():
+            return HttpResponse(
+                                {"Error": "Event exist"},
+                                content_type="application/json",
+                                status=409
+                                )
+        elif "link" in data:
+            event["link"] = data["link"]
+
+# date(almost) iso8601 str: YYYY-MM-DDThh:mm (eg 1997-07-16T19:20)
+        for val in ["title", "description", "date", "type"]:
+            if val in data and len(data[val]) > 0:
+                if val == "date":
+                    event[val] = datetime.datetime.strptime(data[val], datetimeformat)
+                else:
+                    event[val] = data[val]
+            else:
+                return HttpResponse({"Error": "Need {}".format(val)},
+                                    content_type='application/json',
+                                    status=400)
+
+        event = Event(**event)
+        event.save()
+
+        if "need_skills" in data:
+            event.need_skills = prepare_skills(data["need_skills"])
+        #for val in ["need_skills", "tags"]:
+         #   if val in data and len(data[val]) > 0:
+          #      event[val] = data["val"]
+
+        #event["creator"] = request.user
+        event.save()
+        return HttpResponse(json.dumps({"event_id": event.id}),
+                content_type='application/json')
+
+
+    elif request.method == "GET":
+        if "event_id" in data:
+            try:
+                events = Event.objects.get(pk=data["event_id"])
+            except:
+                return HttpResponse({"Error": "Not exist"},
+                                    content_type='application/json',
+                                    status=404)
+
+            events = events_to_dict([events])
+        elif "date" in data:
+            if isinstance(data["date"], dict):
+                if "before" in data["date"] and "after" in data["date"]:
+                    before_date = datetime.datetime.strptime(data["date"]["before"],
+                                                    datetimeformat)
+                    after_date = datetime.datetime.strptime(data["date"]["after"],
+                                                    datetimeformat)
+                else:
+                    return HttpResponse(
+                                        {"Error": "Need before and after date"},
+                                        status=400
+                                        )
+            elif isinstance(data["date"], str):
+                date = datetime.datetime.strptime(data["date"], dateformat)
+                after_date = date
+                before_date = after_date + datetime.timedelta(days=1)
+            else:
+                return HttpResponse({"Error": "Date must be str or dict"})
+            events = Event.objects.filter(
+                                        date__gte=after_date).filter(date__lte=before_date).all()
+            events = events_to_dict(events)
+        else:
+            events = Event.objects.all()
+            events = events_to_dict(events)
+
+        if not request.user.is_anonymous() and data.get("recommendation", False):
+            count = data.get("count", len(events))
+            events = rec_sys.recommendation(
+                                    {"skills": request.user.skills},
+                                    events,
+                                    count)
+        elif "count" in data:
+            events = events[:data["count"]]
+
+        return HttpResponse(events, content_type='application/json')
+
+    elif request.method == "PUT":
+        if "event_id" not in data:
+            return HttpResponse({"Error": "Need event_id"},
+                                content_type="application/json",
+                                status=400)
+        try:
+            event = Event.objects.get(pk=data["event_id"])
+        except:
+            return HttpResponse({"Error": "Not exist"},
+                                content_type='application/json',
+                                status=404)
+        for val in ["title ", "description", "tags", "source", "date"]:
+            if val in data and len(data[val]) > 0:
+                if val == "date":
+                    setattr(event,
+                            val,
+                            datetime.datetime.strptime(data[val], dateformat))
+                else:
+                    setattr(event,
+                            val,
+                            data[val])
+
+        if "need_skills" in data:
+            event.need_skills = prepare_skills(data["need_skills"])
+
+        event.save()
+        return HttpResponse(status=204, content_type='application/json')
+
+    elif request.method == "DELETE":
+        if "event_id" not in data:
+            return HttpResponse({"Error": "Need event_id"},
+                                content_type="application/json",
+                                status=400)
+        try:
+            event = Event.objects.get(pk=data["event_id"])
+        except:
+            return HttpResponse({"Error": "Not exist"},
+                                content_type='application/json',
+                                status=404)
+
+        event.delete()
+        return HttpResponse(status=204)
+
+def go_event(request):
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401)
+
+    if request.content_type == 'application/json' and len(request.body) > 0:
+        data = json.loads(request.body)
+    else:
+        return HttpResponse(status=400)
+
+    if "event_id" in data:
+        try:
+            Event.objects.get(pk=data["event_id"])
+        except:
+            return HttpResponse({"Error": "Not exist"},
+                                content_type='application/json',
+                                status=404)
+        return HttpResponse(status=204)
+    else:
+        return HttpResponse({"Error": "Must be event_id"},
+                                content_type='application/json',
+                                status=400)
+
