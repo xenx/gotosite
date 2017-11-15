@@ -559,6 +559,15 @@ def prepare_skills(skills):
 def events(request):
     return render(request, "pages/events/events.html")
 
+
+
+
+
+from recommendation import RecomendationSystem
+
+rec_sys = RecomendationSystem()
+
+
 from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def create_get_update_delete_event(request):
@@ -641,6 +650,16 @@ def create_get_update_delete_event(request):
         else:
             events = Event.objects.all()
             events = events_to_dict(events)
+
+        if not request.user.is_anonymous() and data.get("recommendation", False):
+            count = data.get("count", len(events))
+            events = rec_sys.recommendation(
+                                    {"skills": request.user.skills},
+                                    events,
+                                    count)
+        elif "count" in data:
+            events = events[:data["count"]]
+
         return HttpResponse(events, content_type='application/json')
 
     elif request.method == "PUT":
